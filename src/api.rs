@@ -10,8 +10,14 @@ use std::sync::{Arc, Mutex};
 pub struct Data {
     // api hosted values
     pub altitude: Vec<(f32, f32)>,
-    pub pressure: Vec<(f32, f32)>,
-    pub temperature: Vec<(f32, f32)>,
+    pub orx: Vec<(f32, f32)>,
+    pub ory: Vec<(f32, f32)>,
+    pub orz: Vec<(f32, f32)>,
+    pub lat: Vec<(f32, f32)>,
+    pub long: Vec<(f32, f32)>,
+    pub fix: Vec<(f32, f32)>,
+    pub quality: Vec<(f32, f32)>,
+
     pub cont_main: Vec<(f32, f32)>,
     pub cont_droug: Vec<(f32, f32)>,
 
@@ -24,14 +30,19 @@ pub struct Data {
 impl Data {
     pub fn new() -> Data {
         Data {
-            altitude: vec![],
-            pressure: vec![],
-            temperature: vec![],
-            cont_main: vec![],
+            altitude:   vec![],
+            orx:        vec![],
+            ory:        vec![],
+            orz:        vec![],
+            lat:        vec![],
+            long:       vec![],
+            fix:        vec![],
+            quality:    vec![],
+            cont_main:  vec![],
             cont_droug: vec![],
-            is_alive: true,
-            do_quit: false,
-            cmds: vec![]
+            is_alive:   true,
+            do_quit:    false,
+            cmds:       vec![]
         }
     }
 }
@@ -74,25 +85,45 @@ fn handle_api(state: &State<TData>, field: &str, points: i32) -> Json<Vec<(f32, 
 
     return match field {
         "alt" => {
-            Json(compile_vec(&mut data.altitude, points, is_neg))
+        Json(compile_vec(&mut data.altitude, points, is_neg))
         },
-
-        "temp" => {
-            Json(compile_vec(&mut data.temperature, points, is_neg))
+            
+        "orx" => {
+        Json(compile_vec(&mut data.orx, points, is_neg))
         },
-
-        "pres" => {
-            Json(compile_vec(&mut data.pressure, points, is_neg))
+                
+        "ory" => {
+        Json(compile_vec(&mut data.ory, points, is_neg))
         },
-
+                
+        "orz" => {
+        Json(compile_vec(&mut data.orz, points, is_neg))
+        },
+                
+        "lat" => {
+        Json(compile_vec(&mut data.lat, points, is_neg))
+        },
+                
+        "long" => {
+        Json(compile_vec(&mut data.long, points, is_neg))
+        },
+                
+        "fix" => {
+        Json(compile_vec(&mut data.fix, points, is_neg))
+        },
+                
+        "quality" => {
+        Json(compile_vec(&mut data.quality, points, is_neg))
+        },
+            
         "cont_main" => {
-            Json(compile_vec(&mut data.cont_main, points, is_neg))
+        Json(compile_vec(&mut data.cont_main, points, is_neg))
         },
-
+            
         "cont_droug" => {
-            Json(compile_vec(&mut data.cont_droug, points, is_neg))
+        Json(compile_vec(&mut data.cont_droug, points, is_neg))
         },
-
+                            
         _ => {
             Json(vec![])
         },
