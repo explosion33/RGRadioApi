@@ -203,6 +203,7 @@ impl Radio {
     }
 
     /// transmits the given message
+    /// note: the radio uses strings backend, so when sending binary data avoid using 0u8 or shift bits up 1
     pub fn transmit(&mut self, msg: &[u8]) -> Result<(), RadioError> {
         if msg.len() > u8::MAX as usize {
             return Err(RadioError::InvalidArgument);
