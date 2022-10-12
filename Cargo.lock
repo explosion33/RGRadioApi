@@ -4,9 +4,9 @@ version = 3
 
 [[package]]
 name = "ArmlabRadio"
-version = "0.6.2"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "677a213b25cacbfd9b9254e6be2b4d6951fd09acaf5261672f0970bb0aa40e94"
+checksum = "29fcca214f76e111ed37d7db305489ea97239c415060daac72b65022430eb523"
 dependencies = [
  "i2cdev",
  "serialport",
