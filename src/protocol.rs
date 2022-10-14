@@ -1,4 +1,4 @@
-const DATA_STREAM_SIZE: usize = 30;
+pub const DATA_STREAM_SIZE: usize = 30;
 
 pub struct RocketData {
     pub time: u32,

@@ -1,7 +1,7 @@
 use crate::api::start_api;
 mod api;
 
-use crate::protocol::{RocketData, decode_stream};
+use crate::protocol::{RocketData, decode_stream, DATA_STREAM_SIZE};
 mod protocol;
 
 use ArmlabRadio::radio_serial::{Radio, get_radio_ports};
@@ -9,8 +9,6 @@ use ArmlabRadio::radio_serial::{Radio, get_radio_ports};
 use std::{thread, usize};
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
-
-const DATA_STREAM_SIZE: usize = 30;
 
 fn get_user_port() -> String{
     let radios = get_radio_ports().expect("error getting devices");
@@ -79,7 +77,13 @@ fn radio(arc_data: api::TData) {
     let mut iter: usize = 0;
 
     loop {
-        let mut data = arc_data.lock().unwrap();
+        let mut data = match arc_data.lock() {
+            Ok(n) => n,
+            Err(_) => {
+                println!("could not lock mutex");
+                continue;
+            } 
+        };
 
         // handle thread quit
         if !data.is_alive {
@@ -109,12 +113,17 @@ fn radio(arc_data: api::TData) {
                 }
             }
             
-            radio.transmit(&buf).expect("error transmitting");
+            match radio.transmit(&buf) {
+                Ok(_) => {},
+                Err(n) => {
+                    println!("transmit error: {:?} | skipping command: {}", n, cmd);
+                }
+            };
         }
         data.cmds.clear();
 
         // downlink
-        {
+        let mut handle_packet = || -> () {
             // get data stream
             let buf = match radio.get_packet() {
                 Ok(n) => {
@@ -123,7 +132,10 @@ fn radio(arc_data: api::TData) {
                     }
                     n
                 },
-                Err(_) => {return;}
+                Err(n) => {
+                    println!("Error getting packet: {:?}", n);
+                    return;
+                }
             };
 
             let buf: [u8; DATA_STREAM_SIZE] = match buf.try_into() {
@@ -142,6 +154,8 @@ fn radio(arc_data: api::TData) {
                 }
             };
 
+            println!("got packet, alt={}", rec_data.altitude);
+
             let time: f32 = rec_data.time as f32 / 1000f32;
 
             data.altitude.push((time, rec_data.altitude)); 
@@ -155,7 +169,9 @@ fn radio(arc_data: api::TData) {
             data.cont_droug.push((time, if rec_data.cont1 {1f32} else {0f32}));
             data.cont_main.push((time, if rec_data.cont2 {1f32} else {0f32}));
 
-        }
+        };
+
+        handle_packet();
 
         drop(data);
 
@@ -166,7 +182,12 @@ fn radio(arc_data: api::TData) {
             println!("sending heartbeat {}", iter);
             
             start_time = Instant::now();
-            radio.transmit(&[1, 1, 1, 1, 1]).expect("transmit error");
+            match radio.transmit(&[1, 1, 1, 1, 1]) {
+                Ok(_) => {},
+                Err(n) => {
+                    println!("transmit error: {:?} | skipping heartbeat", n);
+                }
+            }
         }
 
 
@@ -178,30 +199,32 @@ fn radio(arc_data: api::TData) {
 }
 
 fn main() {
-    println!("Hello, world!");
-
     let data = api::Data::new();
     let thread_data: api::TData = Arc::new(Mutex::new(data));
     let collect = Arc::clone(&thread_data);
 
 
-    // move serial radio handler to thread
-    // write recieved data to TData
-    // write commands from TData to rocket
-    // Radio Comm Layer / Protocol needs to be established
     
+    // move serial radio handler to thread with shared data struct
     let handle = thread::spawn(move || {
         println!("setting up thread");
         radio(collect);
     });
     
-
+    // move api to thread with same shared data struct
     println!("starting api");
-    start_api(thread_data);
-    println!("api closed");
-    let _ = handle.join();
-    println!("thread closed");
+    let handle2 = thread::spawn(move || {
+        start_api(thread_data);
+    });
 
-    //loop {}
+    // check if either thread quits and terminate the program if they do
+    // radio will panic with a radio error
+    // api will close once a quit command is sent
+    loop {
+        if handle.is_finished() || handle2.is_finished() {
+            println!("one of the threads closed, terminating");
+            return;
+        }
+    }
 
 }
