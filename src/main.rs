@@ -4,20 +4,35 @@ mod api;
 use crate::protocol::{RocketData, decode_stream, DATA_STREAM_SIZE};
 mod protocol;
 
-use ArmlabRadio::radio_serial::{Radio, get_radio_ports};
+use ArmlabRadio::radio_serial::{Radio, get_radio_ports, get_open_ports};
+
 
 use std::{thread, usize};
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 
-fn get_user_port() -> String{
-    let radios = get_radio_ports().expect("error getting devices");
-    if radios.len() == 0 {
-        panic!("no radios found");
-    }
-    return radios[0].clone();
+macro_rules! input {
+    {} => {{
+        input!("")
+    }};
 
-    /*let port: String = match radios.len() {
+    ($a:expr) => {{
+        use std::io;
+        use std::io::Write;
+
+        print!("{}", $a);
+        let _ = io::stdout().flush();
+
+        let mut line = String::new();
+        io::stdin().read_line(&mut line).expect("Error reading from stdin");
+        line.trim().to_string()
+    }};
+}
+
+fn get_user_port() -> String{
+    let mut radios = get_radio_ports().expect("error getting devices");
+
+    let port: String = match radios.len() {
         1 => {
             println!("Found one radio on {}", radios[0]);
             radios[0].clone()
@@ -58,11 +73,10 @@ fn get_user_port() -> String{
         }
 
     };
-    */
+
+    return port;
 
 }
-
-
 
 
 fn radio(arc_data: api::TData) {
@@ -116,6 +130,7 @@ fn radio(arc_data: api::TData) {
             match radio.transmit(&buf) {
                 Ok(_) => {},
                 Err(n) => {
+                    radio.sync(10);
                     println!("transmit error: {:?} | skipping command: {}", n, cmd);
                 }
             };
@@ -133,11 +148,13 @@ fn radio(arc_data: api::TData) {
                     n
                 },
                 Err(n) => {
+                    radio.sync(10);
                     println!("Error getting packet: {:?}", n);
                     return;
                 }
             };
 
+            return;
             let buf: [u8; DATA_STREAM_SIZE] = match buf.try_into() {
                 Ok(n) => n,
                 Err(n) => {
@@ -185,12 +202,14 @@ fn radio(arc_data: api::TData) {
             match radio.transmit(&[1, 1, 1, 1, 1]) {
                 Ok(_) => {},
                 Err(n) => {
+                    radio.sync(10);
                     println!("transmit error: {:?} | skipping heartbeat", n);
                 }
             }
         }
 
 
+        println!("loop");
         
         // give api a chance to aquire mutex lock
         thread::sleep(Duration::from_millis(50));

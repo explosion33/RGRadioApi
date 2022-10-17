@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ArmlabRadio = "0.6.4"
+ArmlabRadio = "0.6.5"
+serialport = {version = "4.0.2", default-features = false}
 
 [dependencies.rocket]
 rocket = "0.5.0-rc.1"
