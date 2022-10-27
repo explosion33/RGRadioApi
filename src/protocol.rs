@@ -1,5 +1,6 @@
 pub const DATA_STREAM_SIZE: usize = 30;
 
+#[derive(Debug)]
 pub struct RocketData {
     pub time: u32,
     pub altitude: f32,
@@ -14,7 +15,25 @@ pub struct RocketData {
     pub cont2: bool,
 }
 
-pub fn encode_stream(data: RocketData) -> Result<[u8; DATA_STREAM_SIZE], String> {
+impl PartialEq for RocketData {
+    fn eq(&self, other: &Self) -> bool {
+        let b_time = self.time == other.time;
+        let b_altitude = self.altitude == other.altitude;
+        let b_orx = self.orx == other.orx;
+        let b_ory = self.ory == other.ory;
+        let b_orz = self.orz == other.orz;
+        let b_lat = self.lat == other.lat;
+        let b_long = self.long == other.long;
+        let b_fix = self.fix == other.fix;
+        let b_quality = self.quality == other.quality;
+        let b_cont1 = self.cont1 == other.cont1;
+        let b_cont2 = self.cont2 == other.cont2;
+
+        return b_time && b_altitude && b_orx && b_ory && b_orz && b_lat && b_long && b_fix && b_quality && b_cont1 && b_cont2;
+    }
+}
+
+pub fn encode_stream(data: &RocketData) -> Result<[u8; DATA_STREAM_SIZE], String> {
     let mut buf: Vec<u8> = vec![];
 
     buf.extend_from_slice(&data.time.to_le_bytes());
@@ -79,15 +98,78 @@ pub fn decode_stream(buf: [u8; DATA_STREAM_SIZE]) -> Result<RocketData, String> 
 
     // 28: 0000 0000
     //     qual fix
-    let fix: u8 = buf[28] | 0b00001111;// first 4 (least significant) bits of 29
+    let fix: u8 = buf[28] & 0b00001111;// first 4 (least significant) bits of 29
     let quality: u8 = buf[28] >> 4;// last 4 bits of 29
 
     // 00000   0   0
     //         2   1
-    let cont1: bool = buf[29] & 1 == 1; // first (lsb) of 30
-    let cont2: bool = buf[29] & 2 == 1; // second (lsb) of 30
+    let cont1: bool = buf[29] & 1 == 1;        // first (lsb) of 30
+    let cont2: bool = (buf[29] >> 1) & 1 == 1; // second (lsb) of 30
     
 
 
     Ok(RocketData {time, altitude, orx, ory, orz, lat, long, fix, quality, cont1, cont2})
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::Rng;
+    use crate::protocol::{RocketData, encode_stream, decode_stream};
+
+    fn generate_random_data() -> RocketData {
+        let mut rng = rand::thread_rng();
+    
+        let time: u32 = rng.gen_range(0u32..1000u32);
+        let altitude: f32 = rng.gen_range(-100f32..100f32);
+        let orx: f32 = rng.gen_range(-100f32..100f32);
+        let ory: f32 = rng.gen_range(-100f32..100f32);
+        let orz: f32 = rng.gen_range(-100f32..100f32);
+        let lat: f32 = rng.gen_range(-100f32..100f32);
+        let long: f32 = rng.gen_range(-100f32..100f32);
+        let fix: u8 = rng.gen_range(0u8..5u8);
+        let quality: u8 = rng.gen_range(0u8..5u8);
+        let cont1: bool = rng.gen();
+        let cont2: bool = rng.gen();
+    
+        RocketData { time, altitude, orx, ory, orz, lat, long, fix, quality, cont1, cont2 }
+    }
+    
+
+    #[test]
+    fn rand_enc_dec() {
+        let data: RocketData = generate_random_data();
+
+        let new_data = decode_stream(encode_stream(&data).expect("error encoding stream")).expect("error decoding stream");
+
+        assert_eq!(data, new_data);
+    }
+
+    #[test]
+    fn many_random() {
+        for _ in 0..50 {
+            rand_enc_dec();
+        }
+    }
+
+    #[test]
+    fn order_enc_dec() {
+        let data: RocketData = RocketData {
+            time: 1u32,
+            altitude: 2f32,
+            orx: 3f32,
+            ory: 4f32,
+            orz: 5f32, 
+            lat: 6f32, 
+            long: 7f32,
+            fix: 8u8,
+            quality: 9u8,
+            cont1: false,
+            cont2: true,
+        };
+
+        let new_data = decode_stream(encode_stream(&data).expect("error encoding stream")).expect("error decoding stream");
+
+        assert_eq!(data, new_data);
+
+    }
 }

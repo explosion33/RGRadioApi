@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 ArmlabRadio = "0.6.5"
 serialport = {version = "4.0.2", default-features = false}
+rand = "0.8.5"
 
 [dependencies.rocket]
 rocket = "0.5.0-rc.1"

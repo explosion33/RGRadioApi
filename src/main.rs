@@ -4,83 +4,16 @@ mod api;
 use crate::protocol::{RocketData, decode_stream, DATA_STREAM_SIZE};
 mod protocol;
 
-use ArmlabRadio::radio_serial::{Radio, get_radio_ports, get_open_ports};
+use ArmlabRadio::radio_serial::{Radio, prompt_port};
 
 
 use std::{thread, usize};
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 
-macro_rules! input {
-    {} => {{
-        input!("")
-    }};
-
-    ($a:expr) => {{
-        use std::io;
-        use std::io::Write;
-
-        print!("{}", $a);
-        let _ = io::stdout().flush();
-
-        let mut line = String::new();
-        io::stdin().read_line(&mut line).expect("Error reading from stdin");
-        line.trim().to_string()
-    }};
-}
-
-fn get_user_port() -> String{
-    let mut radios = get_radio_ports().expect("error getting devices");
-
-    let port: String = match radios.len() {
-        1 => {
-            println!("Found one radio on {}", radios[0]);
-            radios[0].clone()
-        }
-        0 | _ => {
-            if radios.len() == 0 {
-                println!("Radio could not be automatically detected");
-                radios = get_open_ports().unwrap();
-            }
-            else {
-                println!("Multiple radios detected");
-            }
-
-            println!("Please select a port: ");
-            let mut i: usize = 0;
-            for port in &radios {
-                println!("\t{}. {}", i, port);
-                i += 1;
-            }
-
-            loop {
-                let res = input!("> ");
-                
-                let val: usize = match res.parse::<usize>() {
-                    Ok(n) => n,
-                    Err(_) => {
-                        println!("Error \"{}\" is not a valid selection", res);
-                        continue;
-                    }
-                };
-
-                if val >= radios.len() {
-                    println!("Error \"{}\" is not a valid selection", res);
-                    continue;
-                }
-                break radios[val].clone();
-            }
-        }
-
-    };
-
-    return port;
-
-}
-
 
 fn radio(arc_data: api::TData) {
-    let port = get_user_port();
+    let port = prompt_port();
 
     println!("found radio on port {}", port);
 
@@ -154,7 +87,6 @@ fn radio(arc_data: api::TData) {
                 }
             };
 
-            return;
             let buf: [u8; DATA_STREAM_SIZE] = match buf.try_into() {
                 Ok(n) => n,
                 Err(n) => {
